@@ -202,7 +202,7 @@ class Attention(nn.Module):
         result = result.permute(1, 2, 0, 3).contiguous().view(batch_size, seq_q, -1)
         
         # Concatenate context vector with input (most important)
-        redidual = residual+result#t.cat([residual, result], dim=-1)
+        redidual = t.cat([residual, result], dim=-1)
         
         residual = self.layer_norm(residual)
         # Final linear
