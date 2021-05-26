@@ -204,7 +204,7 @@ class Attention(nn.Module):
         # Concatenate context vector with input (most important)
         redidual = t.cat([residual, result], dim=-1)
         
-        residual = self.layer_norm(residual)
+        # residual = self.layer_norm(residual)
         # Final linear
         result = self.final_linear(residual)
 
