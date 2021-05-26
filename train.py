@@ -13,7 +13,7 @@ def adjust_learning_rate(optimizer, step_num, warmup_step=4000):
         param_group['lr'] = lr
         
 def main():
-    train_dataset = torchvision.datasets.MNIST('./data', train=True, download=False,)
+    train_dataset = torchvision.datasets.MNIST('./data', train=True, download=True,)
     epochs = 200
     model = LatentModel(128).cuda()
     model.train()
@@ -22,7 +22,7 @@ def main():
     writer = SummaryWriter()
     global_step = 0
     for epoch in range(epochs):
-        dloader = DataLoader(train_dataset, batch_size=16, collate_fn=collate_fn, shuffle=True, num_workers=16)
+        dloader = DataLoader(train_dataset, batch_size=8, collate_fn=collate_fn, shuffle=True, num_workers=4)
         pbar = tqdm(dloader)
         for i, data in enumerate(pbar):
             global_step += 1
@@ -38,8 +38,9 @@ def main():
             
             # Training step
             optim.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=False)
             optim.step()
+            model.zero_grad()
                 
             # Logging
             writer.add_scalars('training_loss',{
@@ -50,8 +51,7 @@ def main():
             
         # save model by each epoch    
         t.save({'model':model.state_dict(),
-                                 'optimizer':optim.state_dict()},
-                                os.path.join('./checkpoint','checkpoint_%d.pth.tar' % (epoch+1)))
+                                 'optimizer':optim.state_dict()},'checkpoint_%d.pth.tar' % (epoch+1))
         
         
 if __name__ == '__main__':

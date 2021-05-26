@@ -133,7 +133,7 @@ class MultiheadAttention(nn.Module):
         super(MultiheadAttention, self).__init__()
 
         self.num_hidden_k = num_hidden_k
-        self.attn_dropout = nn.Dropout(p=0.1)
+        # self.attn_dropout = nn.Dropout(p=0.1)
 
     def forward(self, key, value, query):
         # Get attention score
@@ -143,7 +143,7 @@ class MultiheadAttention(nn.Module):
         attn = t.softmax(attn, dim=-1)
 
         # Dropout
-        attn = self.attn_dropout(attn)
+        # attn = self.attn_dropout(attn)
         
         # Get Context Vector
         result = t.bmm(attn, value)
@@ -202,13 +202,14 @@ class Attention(nn.Module):
         result = result.permute(1, 2, 0, 3).contiguous().view(batch_size, seq_q, -1)
         
         # Concatenate context vector with input (most important)
-        result = t.cat([residual, result], dim=-1)
+        redidual = residual+result#t.cat([residual, result], dim=-1)
         
+        residual = self.layer_norm(residual)
         # Final linear
-        result = self.final_linear(result)
+        result = self.final_linear(residual)
 
         # Residual dropout & connection
-        result = self.residual_dropout(result)
+        # result = self.residual_dropout(result)
         result = result + residual
 
         # Layer normalization
