@@ -14,7 +14,7 @@ def adjust_learning_rate(optimizer, step_num, warmup_step=4000):
         
 def main():
     train_dataset = torchvision.datasets.MNIST('./data', train=True, download=True,)
-    epochs = 200
+    epochs = 50
     model = LatentModel(128).cuda()
     model.train()
     
