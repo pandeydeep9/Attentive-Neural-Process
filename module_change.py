@@ -2,10 +2,12 @@ import torch as t
 import torch.nn as nn
 import math
 
+
 class Linear(nn.Module):
     """
     Linear Module
     """
+
     def __init__(self, in_dim, out_dim, bias=True, w_init='linear'):
         """
         :param in_dim: dimension of input
@@ -23,10 +25,12 @@ class Linear(nn.Module):
     def forward(self, x):
         return self.linear_layer(x)
 
+
 class LatentEncoder(nn.Module):
     """
     Latent Encoder [For prior, posterior]
     """
+
     def __init__(self, num_hidden, num_latent, input_dim=3):
         super(LatentEncoder, self).__init__()
         self.input_projection = Linear(input_dim, num_hidden)
@@ -37,35 +41,37 @@ class LatentEncoder(nn.Module):
 
     def forward(self, x, y):
         # concat location (x) and value (y)
-        encoder_i = t.cat([x,y], dim=-1)
-        
+        encoder_i = t.cat([x, y], dim=-1)
+
         # project vector with dimension 3 --> num_hidden
         encoder_input = self.input_projection(encoder_i)
-        
+
         # self attention layer
         for attention in self.self_attentions:
             encoder_inp, _ = attention(encoder_input, encoder_input, encoder_input)
-        
+
         # mean
         hidden = encoder_inp.mean(dim=1)
         hidden = t.relu(self.penultimate_layer(hidden))
-        
+
         # get mu and sigma
         mu = self.mu(hidden)
         log_sigma = self.log_sigma(hidden)
-        
+
         # reparameterization trick
         std = t.exp(0.5 * log_sigma)
         eps = t.randn_like(std)
         z = eps.mul(std).add_(mu)
-        
+
         # return distribution
         return mu, log_sigma, z
-    
+
+
 class DeterministicEncoder(nn.Module):
     """
     Deterministic Encoder [r]
     """
+
     def __init__(self, num_hidden, num_latent, input_dim=3):
         super(DeterministicEncoder, self).__init__()
         self.self_attentions = nn.ModuleList([Attention(num_hidden) for _ in range(2)])
@@ -76,59 +82,63 @@ class DeterministicEncoder(nn.Module):
 
     def forward(self, context_x, context_y, target_x):
         # concat context location (x), context value (y)
-        encoder_input = t.cat([context_x,context_y], dim=-1)
-        
+        encoder_input = t.cat([context_x, context_y], dim=-1)
+
         # project vector with dimension 3 --> num_hidden
         encoder_input = self.input_projection(encoder_input)
-        
+
         # self attention layer
         for attention in self.self_attentions:
             encoder_input, _ = attention(encoder_input, encoder_input, encoder_input)
-        
+
         # query: target_x, key: context_x, value: representation
         query = self.target_projection(target_x)
         keys = self.context_projection(context_x)
-        
+
         # cross attention layer
         for attention in self.cross_attentions:
             query, _ = attention(keys, encoder_input, query)
-        
+
         return query
-    
+
+
 class Decoder(nn.Module):
     """
-    Decoder for generation 
+    Decoder for generation
     """
+
     def __init__(self, num_hidden):
         super(Decoder, self).__init__()
         self.target_projection = Linear(2, num_hidden)
         self.linears = nn.ModuleList([Linear(num_hidden * 3, num_hidden * 3, w_init='relu') for _ in range(3)])
         self.final_projection = Linear(num_hidden * 3, 1)
-        
+
     def forward(self, r, z, target_x):
         batch_size, num_targets, _ = target_x.size()
         # project vector with dimension 2 --> num_hidden
         target_x = self.target_projection(target_x)
-        
+
         # concat all vectors (r,z,target_x)
-        hidden = t.cat([t.cat([r,z], dim=-1), target_x], dim=-1)
-        
+        hidden = t.cat([t.cat([r, z], dim=-1), target_x], dim=-1)
+
         # mlp layers
         for linear in self.linears:
             hidden = t.relu(linear(hidden))
-            
+
         # get mu and sigma
         y_pred = self.final_projection(hidden)
-        
+
         return y_pred
+
 
 class MultiheadAttention(nn.Module):
     """
     Multihead attention mechanism (dot attention)
     """
+
     def __init__(self, num_hidden_k):
         """
-        :param num_hidden_k: dimension of hidden 
+        :param num_hidden_k: dimension of hidden
         """
         super(MultiheadAttention, self).__init__()
 
@@ -139,12 +149,12 @@ class MultiheadAttention(nn.Module):
         # Get attention score
         attn = t.bmm(query, key.transpose(1, 2))
         attn = attn / math.sqrt(self.num_hidden_k)
-        
+
         attn = t.softmax(attn, dim=-1)
 
         # Dropout
         # attn = self.attn_dropout(attn)
-        
+
         # Get Context Vector
         result = t.bmm(attn, value)
 
@@ -155,10 +165,11 @@ class Attention(nn.Module):
     """
     Attention Network
     """
+
     def __init__(self, num_hidden, h=4):
         """
         :param num_hidden: dimension of hidden
-        :param h: num of heads 
+        :param h: num of heads
         """
         super(Attention, self).__init__()
 
@@ -174,17 +185,16 @@ class Attention(nn.Module):
 
         self.residual_dropout = nn.Dropout(p=0.1)
 
-        self.final_linear = Linear(num_hidden * 2, num_hidden)
+        self.final_linear = Linear(num_hidden, num_hidden)
 
         self.layer_norm = nn.LayerNorm(num_hidden)
 
     def forward(self, key, value, query):
-
         batch_size = key.size(0)
         seq_k = key.size(1)
         seq_q = query.size(1)
         residual = query
-        
+
         # Make multihead
         key = self.key(key).view(batch_size, seq_k, self.h, self.num_hidden_per_attn)
         value = self.value(value).view(batch_size, seq_k, self.h, self.num_hidden_per_attn)
@@ -200,11 +210,11 @@ class Attention(nn.Module):
         # Concatenate all multihead context vector
         result = result.view(self.h, batch_size, seq_q, self.num_hidden_per_attn)
         result = result.permute(1, 2, 0, 3).contiguous().view(batch_size, seq_q, -1)
-        
-        # Concatenate context vector with input (most important)
-        result = t.cat([residual, result], dim=-1)
 
-        # result = self.layer_norm(result)
+        # Concatenate context vector with input (most important)
+        result = residual+result#t.cat([residual, result], dim=-1)
+
+        result = self.layer_norm(result)
 
         # residual = self.layer_norm(residual)
         # Final linear
@@ -218,4 +228,4 @@ class Attention(nn.Module):
         result = self.layer_norm(result)
 
         return result, attns
-    
+

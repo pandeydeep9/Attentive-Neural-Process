@@ -51,7 +51,7 @@ def main():
             
         # save model by each epoch    
         t.save({'model':model.state_dict(),
-                                 'optimizer':optim.state_dict()},'checkpoint_%d.pth.tar' % (epoch+1))
+                                 'optimizer':optim.state_dict()},'May27checkpoint_%d.pth.tar' % (epoch+1))
         
         
 if __name__ == '__main__':

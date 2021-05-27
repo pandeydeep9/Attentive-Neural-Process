@@ -1,4 +1,4 @@
-from module import *
+from module_change import *
 
 class LatentModel(nn.Module):
     """
